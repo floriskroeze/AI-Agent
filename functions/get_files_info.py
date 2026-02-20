@@ -1,11 +1,11 @@
 import os
 from functions.is_valid_target_dir import is_valid_target_dir
+from functions.get_absolute_and_target_path import get_absolute_and_target_path
 
 def get_files_info(working_directory, directory="."):
     try:
-        abs_path = os.path.abspath(working_directory)
-        target_path = os.path.normpath(os.path.join(abs_path, directory))
-    
+        abs_path, target_path = get_absolute_and_target_path(working_directory, directory)
+        
         if not os.path.isdir(target_path):
             return f'Error: "{directory}" is not a directory'
 
