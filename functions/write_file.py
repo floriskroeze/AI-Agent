@@ -26,20 +26,13 @@ schema_write_file = types.FunctionDeclaration(
 def write_file(working_directory, file_path, content):
     try: 
         abs_path, target_path = get_absolute_and_target_path(working_directory, file_path)
-
         if os.path.isdir(target_path):
             return f'Error: Cannot write to "{target_path}" as it is a directory'
-
         if not is_valid_target_dir(abs_path, target_path):
             return f'Error: Cannot write to "{file_path}" as it is outside the permitted working directory'
-        
-        if not os.path.exists(target_path):
-            os.makedirs(target_path, exist_ok=True)
-
+        os.makedirs(os.path.dirname(target_path), exist_ok=True)
         with open(target_path, 'w') as f:
             f.write(content)
-        
         return f'Successfully wrote to "{file_path}" ({len(content)} characters written)'
-    
     except Exception as e:
         return f'Error: {e}'

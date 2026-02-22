@@ -20,24 +20,40 @@ def main():
     args = parser.parse_args()
 
     messages = [genai.types.Content(role="user", parts=[genai.types.Part(text=args.user_prompt)])]
-    call = client.models.generate_content(model="gemini-2.5-flash", contents=messages, config=genai.types.GenerateContentConfig(system_instruction= system_prompt,temperature=0, tools=[available_functions]))
-
-    if call.usage_metadata == None:
-        raise RuntimeError("No metadata in response")
     
-    if call.function_calls:
-         results = []
-         for function_call in call.function_calls:
-            results.append(handle_function_call(function_call))
-    else:
-        print_response(call, args.user_prompt, args.verbose)
+    for _ in range(20):
+        call = call_model(client, messages)
+
+        if call.candidates:
+            for candidate in call.candidates:
+                messages.append(candidate.content)
+
+        if call.usage_metadata == None:
+            raise RuntimeError("No metadata in response")
+        
+        if call.function_calls:
+            function_responses = []
+            for function_call in call.function_calls:
+                function_responses.append(handle_function_call(function_call, args.verbose))
+                
+        else:
+            print_response(call, args.user_prompt, args.verbose)
+            break
+        
+        messages.append(genai.types.Content(role="user", parts=function_responses))
+    
+    print("Too many calls")
+    exit(0)
+
+def call_model(client, messages):
+    return client.models.generate_content(model="gemini-2.5-flash", contents=messages, config=genai.types.GenerateContentConfig(system_instruction= system_prompt,temperature=0, tools=[available_functions]))
 
 def print_response(response, user_prompt, isVerbose=False):
     if isVerbose:
         print(f"User prompt: {user_prompt}")
         print(f"Prompt tokens: {response.usage_metadata.prompt_token_count}")
         print(f"Response tokens: {response.usage_metadata.candidates_token_count}")
-    print(response.text)
+    print(f"Final response: \n{response.text}")
 
 def handle_function_call(function_call, verbose):
     function_call_result = call_function(function_call)
