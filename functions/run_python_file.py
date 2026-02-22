@@ -2,6 +2,27 @@ import os
 import subprocess
 from functions.get_absolute_and_target_path import get_absolute_and_target_path
 from functions.is_valid_target_dir import is_valid_target_dir
+from google import genai
+
+types = genai.types
+
+schema_run_python_file = types.FunctionDeclaration(
+    name="run_python_file",
+    description="Run specific python file",
+    parameters=genai.types.Schema(
+        type=types.Type.OBJECT,
+        properties={
+            "file_path": types.Schema(
+                type=types.Type.STRING,
+                description="Path to file from, relative to the working directory (default is the working directory itself)",
+            ),
+            "args": types.Schema(
+                type=types.Type.STRING,
+                description="Arguments to pass",
+            ),
+        },
+    ),
+)
 
 def run_python_file(working_directory, file_path, args=None):
     try:

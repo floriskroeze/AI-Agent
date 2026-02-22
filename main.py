@@ -1,34 +1,59 @@
 import os
 from dotenv import load_dotenv
 from prompts.prompts import system_prompt
-
-load_dotenv()
-api_key = os.environ.get("GEMINI_API_KEY")
-
-if api_key == None:
-    raise RuntimeError("Gemini api key not found")
-
 from google import genai
 import argparse
+from functions.call_function import available_functions, call_function
 
-client = genai.Client(api_key=api_key)
+def main():
+    load_dotenv()
+    api_key = os.environ.get("GEMINI_API_KEY")
 
-parser = argparse.ArgumentParser(description="Chatbot")
-parser.add_argument("user_prompt", type=str, help="User prompt")
-parser.add_argument("--verbose", action="store_true", help="Enable verbose output")
-args = parser.parse_args()
+    if api_key == None:
+        raise RuntimeError("Gemini api key not found")
 
-messages = [genai.types.Content(role="user", parts=[genai.types.Part(text=args.user_prompt)])]
-call = client.models.generate_content(model="gemini-2.5-flash", contents=messages, config=genai.types.GenerateContentConfig(system_instruction= system_prompt))
+    client = genai.Client(api_key=api_key)
 
-if call.usage_metadata == None:
-    raise RuntimeError("No metadata in response")
+    parser = argparse.ArgumentParser(description="Chatbot")
+    parser.add_argument("user_prompt", type=str, help="User prompt")
+    parser.add_argument("--verbose", action="store_true", help="Enable verbose output")
+    args = parser.parse_args()
 
-def printResponse(response, user_prompt, isVerbose=False):
+    messages = [genai.types.Content(role="user", parts=[genai.types.Part(text=args.user_prompt)])]
+    call = client.models.generate_content(model="gemini-2.5-flash", contents=messages, config=genai.types.GenerateContentConfig(system_instruction= system_prompt,temperature=0, tools=[available_functions]))
+
+    if call.usage_metadata == None:
+        raise RuntimeError("No metadata in response")
+    
+    if call.function_calls:
+         results = []
+         for function_call in call.function_calls:
+            results.append(handle_function_call(function_call))
+    else:
+        print_response(call, args.user_prompt, args.verbose)
+
+def print_response(response, user_prompt, isVerbose=False):
     if isVerbose:
         print(f"User prompt: {user_prompt}")
         print(f"Prompt tokens: {response.usage_metadata.prompt_token_count}")
         print(f"Response tokens: {response.usage_metadata.candidates_token_count}")
     print(response.text)
 
-printResponse(call, args.user_prompt, args.verbose)
+def handle_function_call(function_call, verbose):
+    function_call_result = call_function(function_call)
+
+    if not len(function_call_result.parts):
+        raise Exception("Error: No function parts")
+    
+    if not function_call_result.parts[0].function_response:
+        raise Exception("Error: No function result")
+
+    if not function_call_result.parts[0].function_response.response:
+        raise Exception("Error: No response on function response")
+    
+    if verbose:
+        print(f"-> {function_call_result.parts[0].function_response.response}")
+
+    return function_call_result.parts[0]
+
+main() 
